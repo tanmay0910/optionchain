@@ -1,0 +1,29 @@
+name: Market Bot
+on:
+  schedule:
+    - cron: '*/5 3-10 * * 1-5' # 9:15 AM to 3:45 PM IST approx
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: pip install pandas nsepython google-genai
+      - name: Run Bot
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python bot.py
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "MarketBot"
+          git config --global user.email "bot@github.com"
+          git add market_data.csv
+          git commit -m "Update Market Log" || exit 0
+          git push
