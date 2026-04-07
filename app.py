@@ -1,24 +1,26 @@
 import streamlit as st
-from pyairtable import Api
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(page_title="Wall Scanner", layout="wide")
-st.title("🏹 Market Wall & Momentum Scanner")
+st.set_page_config(page_title="Market Pulse", layout="wide")
+st.title("🏹 Market Wall Scanner")
 
-# Load from Airtable
-api = Api(st.secrets["AIRTABLE_TOKEN"])
-table = api.table(st.secrets["AIRTABLE_BASE_ID"], "Table 1")
-rows = table.all()
-df = pd.DataFrame([r['fields'] for r in rows])
-
-if not df.empty:
-    # 1. THE SIGNAL
-    latest = df.iloc[-1]
-    st.subheader(f"Latest Signal @ {latest['Time']}")
-    st.info(latest['Verdict'])
-
-    # 2. PIE CHART: Selling Overview
-    # (Assuming your bot calculates Total CE vs PE Selling)
-    fig = px.pie(values=[60, 40], names=['Call Sellers', 'Put Sellers'], hole=.4)
-    st.plotly_chart(fig)
+try:
+    # Read the file directly from your GitHub folder
+    df = pd.read_csv("market_log.csv")
+    
+    if not df.empty:
+        # Latest Signal
+        latest = df.iloc[-1]
+        st.metric("Nifty Price", latest['Price'])
+        st.info(f"Verdict: {latest['Verdict']}")
+        
+        # Historical View
+        st.write("### Momentum Log")
+        st.dataframe(df.sort_index(ascending=False), use_container_width=True)
+        
+        # Simple Chart
+        fig = px.line(df, x="Time", y="Price", title="Price Movement")
+        st.plotly_chart(fig, use_container_width=True)
+except:
+    st.warning("Waiting for the first data update from the bot...")
