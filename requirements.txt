@@ -1,6 +1,4 @@
-streamlit
-pyairtable
+requests
 pandas
-google-genai
-plotly
-nsepython
+google-generativeai
+streamlit
