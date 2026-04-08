@@ -1,28 +1,48 @@
 import streamlit as st
+import requests
 import pandas as pd
-import plotly.express as px
+import google.generativeai as genai
+import io
 
-st.set_page_config(page_title="Market Pulse", layout="wide")
-st.title("🏹 Market Momentum Scanner")
+# 1. Setup Gemini API
+genai.configure(api_key="YOUR_GEMINI_API_KEY_HERE")
+model = genai.GenerativeModel('gemini-1.5-flash')
 
-try:
-    # Read the data file
-    df = pd.read_csv("market_data.csv")
-    
-    # 1. Broad Status Section
-    latest = df.iloc[-1]
-    col1, col2 = st.columns(2)
-    col1.metric("Nifty Price", latest['Price'])
-    st.info(f"Verdict: {latest['Verdict']}")
-    
-    # 2. Visual Chart: The 'Ball' Movement
-    st.subheader("Price Movement Trend")
-    fig = px.line(df, x="Time", y="Price", markers=True)
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # 3. History Table
-    st.subheader("5-Min Market Log")
-    st.dataframe(df.sort_index(ascending=False), use_container_width=True)
+# 2. NSE Fetcher Function
+def get_nse_data():
+    url = 'https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY'
+    headers = {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/103.0.0.0 Safari/537.36',
+        'accept-encoding': 'gzip, deflate, br',
+        'accept-language': 'en-US,en;q=0.9'
+    }
+    session = requests.Session()
+    session.get("https://www.nseindia.com/option-chain", headers=headers, timeout=10)
+    response = session.get(url, headers=headers, timeout=10)
+    data = response.json()
+    df = pd.json_normalize(data['records']['data'])
+    return df
 
-except Exception:
-    st.warning("Waiting for the first data update from the bot. Ensure bot.py has run successfully.")
+# 3. Website UI
+st.title("NSE Option Chain AI Summarizer")
+
+if st.button("Download & Summarize Now"):
+    with st.spinner("Fetching market data..."):
+        # Fetch data
+        df = get_nse_data()
+        
+        # Prepare data for Gemini (Take the most important columns to save tokens)
+        csv_data = df.to_csv(index=False)
+        
+        st.success("Data Downloaded!")
+        
+    with st.spinner("Gemini is analyzing..."):
+        # Ask Gemini for the summary
+        prompt = f"Analyze this NSE Nifty Option Chain data and give me a brief summary. Tell me the PCR, support/resistance, and if there is more call writing or put writing:\n\n{csv_data[:5000]}" # Limit size
+        response = model.generate_content(prompt)
+        
+        st.subheader("Market Summary")
+        st.write(response.text)
+        
+        # Option to download the raw file too
+        st.download_button("Download CSV File", csv_data, "nifty_data.csv", "text/csv")
